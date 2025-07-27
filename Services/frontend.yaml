@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-green
+  namespace: todo-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: oksesaneka22/frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 443
+          resources:  # ✅ Added resource requests/limits for better scaling and resource management
+            requests:
+              cpu: "250m"  # CPU request
+              memory: "256Mi"  # Memory request
+            limits:
+              cpu: "500m"  # CPU limit
+              memory: "512Mi"  # Memory limit
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: todo-app
+spec:
+  selector:
+    app: frontend
+  ports:
+    - protocol: TCP
+      port: 443
+      targetPort: 443
+  type: LoadBalancer
+  sessionAffinity: None  # Optional, ensures load balancer doesn't keep the same session to a single pod
+  externalTrafficPolicy: Cluster  # Optional, allows better load balancing across multiple nodes
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+  namespace: todo-app
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend-green
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+    - type: Resource  # Added memory utilization as a metric for more balanced scaling
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 50

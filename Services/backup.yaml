@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backup-sa
+  namespace: todo-app
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: efs-backup
+  namespace: todo-app
+spec:
+  schedule: "0 */6 * * *"  # Every  hours
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: backup-sa
+          containers:
+            - name: postgres-backup
+              image: oksesaneka22/postgres:aws  # ✅ Uses official PostgreSQL image which includes `pg_dump`
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  mkdir -p /mnt/efs/backup
+                  apk add --no-cache aws-cli
+                  TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
+                  BACKUP_FILE="/backup/postgres_backup_${TIMESTAMP}.sql.gz"
+                  PG_HOST=postgres  # Name of the PostgreSQL service (replace with actual service name)
+                  PG_PORT=5432  # Default PostgreSQL port (can change if necessary)
+                  PG_USER=postgres  # Replace with your PostgreSQL user
+                  PG_PASSWORD=123456  # Replace with your PostgreSQL user's password
+                  PG_DB=SoundScapeDb  # Replace with the target database name
+                  export PGPASSWORD=${PG_PASSWORD}  # Set the password for pg_dump
+                  echo "Starting PostgreSQL dump from ${PG_HOST}..."
+                  pg_dump -h ${PG_HOST} -p ${PG_PORT} -U ${PG_USER} -F c -b -v -f /mnt/efs/${BACKUP_FILE} ${PG_DB}
+                  echo "Uploading to S3..."
+                  aws s3 cp /mnt/efs${BACKUP_FILE} s3://backeups-site123/postgres-backup/
+                  echo "Backup completed!"
+              volumeMounts:
+                - name: efs-storage
+                  mountPath: /mnt/efs
+          volumes:
+            - name: efs-storage
+              persistentVolumeClaim:
+                claimName: postgres-pvc
+          restartPolicy: OnFailure
+
