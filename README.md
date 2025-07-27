@@ -1,4 +1,5 @@
-# **Soundscape Infrastructure** 🚀  
+# **Soundscape Infrastructure** 🚀 
+!This is copy of real private repo!
 ⭐ Star me on GitHub!
 ![Docker backend Pulls](https://img.shields.io/docker/pulls/oksesaneka22/backend)
 [![Soundscape](https://raw.githubusercontent.com/oksesaneka22/script/refs/heads/main/banner.svg)](https://soundscape.co.ua)
