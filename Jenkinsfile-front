@@ -1,0 +1,133 @@
+pipeline {
+    agent any
+    environment {
+        AWS_ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY')
+        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_KEY')
+        AWS_DEFAULT_REGION = 'eu-north-1'
+        SONARQUBE_TOKEN = credentials('SONARQUBE_TOKEN')
+        GITHUB_TOKEN = credentials('GITHUB_TOKEN')
+        TELEGRAM_BOT_TOKEN = credentials('TELEGRAM_BOT_TOKEN')
+        TELEGRAM_CHAT_ID = credentials('TELEGRAM_CHAT_ID')
+        CERT_PATH = "${WORKSPACE}/certificates"
+    }
+
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                deleteDir()
+            }
+        }
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main', url: 'git@github.com:oksesaneka22/kubiks.git'
+            }
+        }
+
+        stage('Setup files') {
+            steps {
+                script {
+                    sh 'mkdir -p $CERT_PATH'
+
+                    // Load the certificate from Jenkins credentials
+                    withCredentials([certificate(credentialsId: 'CERT', keystoreVariable: 'CERT_FILE')]) {
+                        sh '''
+                        # Extract private key
+                        openssl pkcs12 -in "$CERT_FILE" -nocerts -nodes -passin pass: | \
+                        awk '/-----BEGIN PRIVATE KEY-----/,/-----END PRIVATE KEY-----/' > "$CERT_PATH/private.pem"
+                        
+                        # Extract certificate and remove bag attributes
+                        openssl pkcs12 -in "$CERT_FILE" -clcerts -nokeys -passin pass: | \
+                        awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' > "$CERT_PATH/origin.pem"
+                        '''
+                    }
+                    sh 'git clone https://github.com/Kholod13/SoundScape_frontend.git --branch main Front'
+                    sh 'mv Dockerfile-front ./Front/Dockerfile'
+                    sh 'mv default.conf ./Front/default.conf'
+                    sh 'mv sonar-project.properties ./Front/sonar-project.properties'
+                    sh 'cp $CERT_PATH/origin.pem ./Front/origin.pem'
+                    sh 'cp $CERT_PATH/private.pem ./Front/private.pem'
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    def scannerHome = tool 'SonarScanner';
+                    withSonarQubeEnv() {
+                        sh "cd Front && ${scannerHome}/bin/sonar-scanner"
+                        sh 'python3 Python/issues-front.py'
+                    }
+                }
+            }
+        }
+        
+        stage('Docker Build & Push') {
+            steps {
+                script{
+                    sh 'docker build -t oksesaneka22/frontend:${BUILD_NUMBER} ./Front'
+                    sh 'docker push oksesaneka22/frontend:${BUILD_NUMBER}'
+                }
+            }
+        }
+        stage('Determine Active Deployment') {
+            steps {
+                script {
+                    env.activeDeployment = sh(script: "sudo kubectl get deployments -n todo-app -o json | jq -r '.items[] | select(.spec.template.spec.containers[0].image | startswith(\"oksesaneka22/frontend:\")) | .metadata.name'", returnStdout: true).trim()
+                    if (env.activeDeployment.contains("frontend-blue")) {
+                        env.NEW_DEPLOYMENT = "frontend-green"
+                    } else if (env.activeDeployment.contains("frontend-green")) {
+                        env.NEW_DEPLOYMENT = "frontend-blue"
+                    } else {
+                        error "Error: Unable to determine active deployment"
+                    }
+                    echo "Active Deployment: ${env.activeDeployment}"
+                    echo "New Deployment: ${env.NEW_DEPLOYMENT}"
+                }
+            }
+        }
+        stage('sed') {
+            steps {
+                script {
+                    sh "cd Services && sed -i 's|image: oksesaneka22/frontend:.*|image: oksesaneka22/frontend:${BUILD_NUMBER}|' frontend.yaml"
+                    sh "cd Services && sed -i 's|image: oksesaneka22/frontend:.*|image: oksesaneka22/frontend:${BUILD_NUMBER}|' frontend-blue.yaml"
+                    sh "cd Services && sed -i 's|image: oksesaneka22/frontend:.*|image: oksesaneka22/frontend:${BUILD_NUMBER}|' frontend-green.yaml"
+                }
+            }
+        }
+        stage('Switch Deployment') {
+            steps {
+                script {
+                    if (env.NEW_DEPLOYMENT == "frontend-blue") {
+                        sh 'sudo kubectl apply -f Services/frontend-blue.yaml'
+                        sh 'sudo kubectl get deployments -n todo-app'
+                        sh 'sudo kubectl delete deployment frontend-green -n todo-app'
+                        sh 'sudo kubectl get deployments -n todo-app'
+                        sh 'sudo kubectl delete pods -l app=frontend -n todo-app'
+                    } else if (env.NEW_DEPLOYMENT == "frontend-green") {
+                        sh 'sudo kubectl apply -f Services/frontend-green.yaml'
+                        sh 'sudo kubectl get deployments -n todo-app'
+                        sh 'sudo kubectl delete deployment frontend-blue -n todo-app'
+                        sh 'sudo kubectl get deployments -n todo-app'
+                        sh 'sudo kubectl delete pods -l app=frontend -n todo-app'
+                    } else {
+                        echo "Error: Unknown deployment"
+                        echo "Active Deployment: ${env.ACTIVE_DEPLOYMENT}"
+                    }
+                }
+            }
+        }
+    }
+    post {
+        success {
+            script {
+                sh 'python3 Python/telegram.py'
+            }
+        }
+        failure {
+            script {
+                sh 'python3 Python/error_alert.py'
+            }
+        }
+    }
+}

@@ -1,0 +1,28 @@
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+WORKDIR /app
+
+# Copy certificates to the container
+COPY origin.pem /https/cert.pem
+COPY private.pem /https/key.pem
+
+# Expose HTTPS port
+EXPOSE 443
+
+# Configure Kestrel to use certificates
+ENV ASPNETCORE_URLS="https://+:443"
+ENV ASPNETCORE_Kestrel__Certificates__Default__Path="/https/cert.pem"
+ENV ASPNETCORE_Kestrel__Certificates__Default__KeyPath="/https/key.pem"
+
+# Copy and build the application
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY ["SoundScape.csproj", "./"]
+RUN dotnet restore "SoundScape.csproj"
+COPY . .
+RUN dotnet publish -c Release -o /app/publish
+
+# Final stage
+FROM base AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet", "SoundScape.dll"]

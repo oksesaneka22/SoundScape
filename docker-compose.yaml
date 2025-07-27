@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: SoundScapeDb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+    ports:
+      - "5432:5432"
+    networks:
+      - soundscape-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./Back
+    image: oksesaneka22/backend:latest
+    ports:
+      - "443:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=postgres;Port=5432;Database=SoundScapeDb;User Id=postgres;Password=123456;
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - soundscape-network
+
+  frontend:
+    build: ./Front
+    image: oksesaneka22/frontend:latest
+    ports:
+      - "443:443"
+    depends_on:
+      - backend
+    networks:
+      - soundscape-network
+    volumes:
+      - ./Front/default.conf:/etc/nginx/conf.d/default.conf
+
+networks:
+  soundscape-network:
+    driver: bridge
