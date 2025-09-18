@@ -1,4 +1,4 @@
-# **Soundscape Infrastructure** 🚀 
+<img width="901" height="4439" alt="image" src="https://github.com/user-attachments/assets/17696aff-7164-4751-b053-ac66c92fca69" /># **Soundscape Infrastructure** 🚀 
 !This is copy of real private repo!
 ⭐ Star me on GitHub!
 ![Docker backend Pulls](https://img.shields.io/docker/pulls/oksesaneka22/backend)
@@ -67,7 +67,7 @@ This pipeline builds, tests, and deploys the **frontend service** using **blue-g
 ### **Pipeline Workflow Visualization**  
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/75ec31c4-d6b1-4ebb-9576-c3605f67ccc6" alt="Image description">
+  <img width="901" height="4439" alt="image" src="https://github.com/user-attachments/assets/05985440-1404-46df-9e30-046c2d6399df" />
 </p>
 
 ---
@@ -211,3 +211,4 @@ docker-compose up --build
 
 ---
 **Special Thanks to  Bugay Volodimir For fast fixes**
+
