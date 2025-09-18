@@ -67,7 +67,7 @@ This pipeline builds, tests, and deploys the **frontend service** using **blue-g
 ### **Pipeline Workflow Visualization**  
 
 <p align="center">
-  <img width="901" height="4439" alt="image" src="https://github.com/user-attachments/assets/05985440-1404-46df-9e30-046c2d6399df" />
+  <img width="901" height="4439" alt="image" src="https://github.com/user-attachments/assets/7741a1cf-d363-4b94-a49c-8d73af09516d" />
 </p>
 
 ---
