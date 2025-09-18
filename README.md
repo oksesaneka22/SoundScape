@@ -1,4 +1,4 @@
-<img width="901" height="4439" alt="image" src="https://github.com/user-attachments/assets/17696aff-7164-4751-b053-ac66c92fca69" /># **Soundscape Infrastructure** 🚀 
+# **Soundscape Infrastructure** 🚀 
 !This is copy of real private repo!
 ⭐ Star me on GitHub!
 ![Docker backend Pulls](https://img.shields.io/docker/pulls/oksesaneka22/backend)
@@ -211,4 +211,5 @@ docker-compose up --build
 
 ---
 **Special Thanks to  Bugay Volodimir For fast fixes**
+
 
